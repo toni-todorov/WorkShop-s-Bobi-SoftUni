@@ -1,138 +1,62 @@
+const Cubes = require('../models/cube');
+const Accessory = require('../models/accessories')
 
-const fs = require('fs');
-const path = require('path');
-
-const DATABASE_PATH = path.join(__dirname, '/../config/database.json');
-const DESCRIPTION_MAX_LENGTH = 200;
-
-let nextId = 1
-getCubes().then(cubes => {
-    let maxId = -1;
-    cubes.forEach(c => {
-        if (c.id > maxId) {
-            maxId = c.id
-        }
-    });
-    nextId = maxId + 1
-});
-let isDbAccessed = false;
 
 function getCubes() {
-    return new Promise((resolve, reject) => {
-        fs.readFile(DATABASE_PATH, 'utf-8', (error, data) => {
-            if (error) {
-                reject(error)
-            }
-
-            data = JSON.parse(data);
-            resolve(data)
-        })
-    })
+    return Cubes.find({}).lean()
 }
 
-function getCubeById(id) {
-    return getCubes()
-        .then(cubes => {
-            let cube = cubes.find(c => c.id === id);
-            if (!cube) {
-                throw new Error(`Cube with id ${id} does not exist.`)
-            }
+function getAccessories(idsToExclude) {
+    return Accessory.find({ '_id': { $nin: idsToExclude }}).lean()
+}
 
-            return cube;
-        })
+function getCubeById(id , returnAccessories = false) {
+    if( returnAccessories ){
+        return Cubes.findById(id).populate('accessories').lean()
+    } 
+        return Cubes.findById(id).lean()
+   
 }
 
 function searchCubes(search, difficultyFrom, difficultyTo) {
     let fromDifficultyParsed = parseInt(difficultyFrom);
     let toDifficultyParsed = parseInt(difficultyTo);
-    return getCubes()
-        .then(cubes => {
-            let filterCubes = cubes.filter(c => {
-                let lowercaseSearch = search.trim().toLowerCase()
-                let searchIncluded = !search ||
-                    c.name.toLowerCase().includes(lowercaseSearch) ||
-                    c.description.toLowerCase().includes(lowercaseSearch);
 
-                let isFromDifficulty = !fromDifficultyParsed ||
-                    c.difficultyLevel >= fromDifficultyParsed
-
-                let isToDifficulty = !toDifficultyParsed ||
-                    c.difficultyLevel <= toDifficultyParsed;
-
-                return searchIncluded && isFromDifficulty && isToDifficulty
-            })
-
-            return { cubes: filterCubes, search: search };
-        })
-}
-
-function validateCube(cube) {
-    if (!cube.name || typeof (cube.name) !== 'string') {
-        throw new TypeError('Name is required and must be a non-empty string.')
-    }
-
-    if (cube.description && (cube.description.length > DESCRIPTION_MAX_LENGTH)) {
-        throw new RangeError(`Description cannot be longer than ${DESCRIPTION_MAX_LENGTH} symbols.`)
-    }
-
-    if (cube.imageUrl &&
-        !cube.imageUrl.startsWith('http://') &&
-        !cube.imageUrl.startsWith('https://')) {
-        throw new RangeError('Invalid image URL')
-    }
-
-    let integerDifficulty = parseInt(cube.difficultyLevel);
-    if (integerDifficulty && (integerDifficulty <= 0 || integerDifficulty > 6)) {
-        throw new TypeError('Difficultty is required and must be integer value between 1 and 6')
-    }
-}
-
-function save(cube) {
-    const newCube = {
-        id: nextId++,
-        name: cube.name,
-        description: cube.description,
-        imageUrl: cube.imageUrl,
-        difficultyLevel: cube.difficultyLevel
+    if (fromDifficultyParsed === '' || isNaN(fromDifficultyParsed)) {
+        fromDifficultyParsed = 1
     };
 
-    validateCube(newCube);
+    if (toDifficultyParsed === '' || isNaN(toDifficultyParsed)) {
+        toDifficultyParsed = 6
+    };
+    async function database() {
+        let result = Cubes.find({
+            $or: [
+                { name: { $regex: new RegExp(search, 'i') } },
+                { description: { $regex: new RegExp(search, 'i') } }
+            ],
+            difficultyLevel: { $gte: fromDifficultyParsed, $lte: toDifficultyParsed }
 
-    newCube.difficultyLevel = parseInt(newCube.difficultyLevel)
-
-    addEntryToDb(newCube);
-
-}
-
-function addEntryToDb(newEntry) {
-    if (isDbAccessed) {
-        setTimeout(addEntryToDb, 0, newEntry);
-        return;
+        }).lean()
+        return await result
     }
-
-    isDbAccessed = true;
-    fs.readFile(DATABASE_PATH, 'utf-8', (error, data) => {
-        if (error) {
-            throw error;
-        }
-
-        let db = JSON.parse(data);
-        db.push(newEntry);
-
-        fs.writeFile(DATABASE_PATH, JSON.stringify(db), error => {
-            if (error) {
-                throw error
-            }
-
-            isDbAccessed = false;
-            console.log('New cube has been successfully added');
-        });
-    });
+    return database()
 }
+
+async function updateCube(cubeId, accessoryId) {
+    const CubsforAccessory = await Cubes.findById(cubeId);
+    const AccessoryForCubs = await Accessory.findById(accessoryId);
+    CubsforAccessory.accessories.push(accessoryId)
+    AccessoryForCubs.cubes.push(cubeId)
+    CubsforAccessory.save()
+    AccessoryForCubs.save()
+}
+
 
 module.exports = {
-    save,
     getCubes,
+    getAccessories,
+    updateCube,
     getCubeById,
     searchCubes
 };
