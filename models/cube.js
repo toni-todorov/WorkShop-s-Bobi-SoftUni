@@ -4,11 +4,17 @@ const CubeShema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
+        match: [/^[A-Za-z0-9]+$/gi , 'Please write valid name with english letters and digits'],
+        minlength : [5 , 'Please write longer name']
+
     },
     description: {
         type: String,
         required: true,
         maxlength:2000,
+        match: [/[A-Za-z0-9]+/gi , 'Cube disctription is not valid'],
+        minlength : [20 , 'At least 20 character']
+
     },
     imageUrl: {
         type: String,

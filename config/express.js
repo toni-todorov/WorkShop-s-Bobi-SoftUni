@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const { isLogin } = require('../services/user-service');
 
 
+
 module.exports = (app) => {
     app.use(cookieParser())
     //TODO: Setup the view engine
@@ -19,4 +20,5 @@ module.exports = (app) => {
     //TODO: Setup the static files
     app.use(express.static('static'));
     app.use(isLogin)
+    app.use(express.json())
 };

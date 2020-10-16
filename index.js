@@ -4,7 +4,8 @@ const mongoose = require('mongoose')
 const config = require('./config/config')[env];
 mongoose.connect('mongodb://localhost:27017/cubicle' , {
      useNewUrlParser: true,
-     useUnifiedTopology: true
+     useUnifiedTopology: true,
+     useFindAndModify: false
 } , (err) => {
     if (err){
         console.error(err)

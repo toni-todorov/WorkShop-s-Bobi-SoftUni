@@ -1,3 +1,4 @@
+const { findOne } = require('../models/cube');
 const Cubes = require('../models/cube');
 
 
@@ -5,11 +6,11 @@ function getCubes() {
     return Cubes.find({}).lean()
 }
 
-function getCubeById(id , returnAccessories = false) {
-    if( returnAccessories ){
+function getCubeById(id, returnAccessories = false) {
+    if (returnAccessories) {
         return Cubes.findById(id).populate('accessories').lean()
-    } 
-        return Cubes.findById(id).lean()
+    }
+    return Cubes.findById(id).lean()
 }
 
 function searchCubes(search, difficultyFrom, difficultyTo) {
@@ -37,8 +38,19 @@ function searchCubes(search, difficultyFrom, difficultyTo) {
     return database()
 }
 
+async function editCube(id, cubes) {
+    let currentCube = await Cubes.findByIdAndUpdate(id, cubes, {new: true, runValidators: true}).lean()
+    return currentCube
+}
+
+async function deleteCube(id){
+    await Cubes.findByIdAndRemove(id)
+}
+
 module.exports = {
     getCubes,
     getCubeById,
     searchCubes,
+    editCube,
+    deleteCube
 };
